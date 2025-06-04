@@ -3,6 +3,7 @@ import os
 import random
 import string
 import time
+from copy import deepcopy
 
 import utils
 import workflow
@@ -145,13 +146,17 @@ if __name__ == "__main__":
         logger.warning(f"文件 {filename} 不存在，将自动生成数据")
         table_column_info = generate_data(1, 3, 20, 2, 2, 10000, 10000)
         save_data(filename, table_column_info)
+
+    old_table_column_info = deepcopy(table_column_info)
+
     costs = list()
     for i in range(11):
-        start_time = time.time()
-        result = workflow.retrieve_column_value_options_name(question=question, tables=table_column_info)
+        table_column_info = deepcopy(old_table_column_info)
+        start_time = time.perf_counter()
+        result = workflow.retrieve_common(question=question, table_column_info=table_column_info, top_k=10)
 
         if i != 0:
-            costs.append(time.time() - start_time)
+            costs.append(time.perf_counter() - start_time)
 
         save_data(f"result-{i}.json", result)
 

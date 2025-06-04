@@ -60,6 +60,14 @@ def compute(words: set, record: EnumRecord) -> float:
     return jaccard(s1=words, s2=segments)
 
 
+def compute_str(words: set, col_val: str) -> float:
+    if not words or not col_val or not isinstance(col_val, str):
+        return 0.0
+
+    segments = set(tokenize(text=col_val))
+    return jaccard(s1=words, s2=segments)
+
+
 def tokenize(text: str) -> list[str]:
     if not text or not isinstance(text, str):
         return []
@@ -233,6 +241,32 @@ def _retrieve(question: str, tables: list[dict], top_k: int, data_type: str) -> 
 
     # 将 mappings 转换成原 tables 数据结构并返回
     return [{"table_name": k, "column_info": v.columns} for k, v in mappings.items()]
+
+
+def retrieve_common(question: str, table_column_info: list[dict], top_k: int = 10,
+                    data_types: tuple = ('str', 'varchar')) -> list[dict]:
+    if not table_column_info or not isinstance(table_column_info, list):
+        return []
+    s1 = set(tokenize(question))
+    for cur_table_info in table_column_info:
+        column_info = cur_table_info["column_info"]
+        for cur_column_info in column_info:
+            column_enum_value = cur_column_info.get("column_enum_value", [])
+            data_format = cur_column_info.get("data_format", "")
+            if len(column_enum_value) <= top_k:
+                continue
+            if len(column_enum_value) > top_k and data_format not in data_types:
+                column_enum_value["column_enum_value"] = column_enum_value[:top_k]
+
+            jobs = [[s1, col_val] for col_val in column_enum_value]
+            results = utils.multi_process_run(func=compute_str, tasks=jobs)
+
+            similarity_pairs = zip(column_enum_value, results)
+            sorted_similarity_pairs = sorted(similarity_pairs, key=lambda x: -x[1])
+            sorted_column_value = [x for x, _ in sorted_similarity_pairs][:top_k]
+            cur_column_info["column_enum_value"] = sorted_column_value
+
+    return table_column_info
 
 
 def _truncate_column_values(tables: list[dict], top_k: int, data_type: str) -> list[dict]:

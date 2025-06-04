@@ -62,7 +62,7 @@ def generate_cn_str(m: int, n: int, short: int, long: int) -> list[dict]:
 
 
 def generate_data(table_num: int, len_min: int, len_max: int, column_min: int, column_max: int, enum_min: int,
-                  enum_max: int) -> dict:
+                  enum_max: int) -> list[dict]:
     if table_num <= 0:
         raise ValueError(f"'table_num'必须大于0")
 

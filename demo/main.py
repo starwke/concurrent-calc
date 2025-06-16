@@ -8,6 +8,10 @@ from copy import deepcopy
 import utils
 import workflow
 from logger import logger
+from fastapi import FastAPI
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse
+import uvicorn
 
 
 def generate_random_str(m: int, n: int, candidates: str | list[str], sep: str = "") -> str:
@@ -134,8 +138,32 @@ def save_data(filename: str, data: list[dict]) -> None:
 
     logger.info(f"数据已保存到 {filepath}")
 
+app = FastAPI()
 
-if __name__ == "__main__":
+TABLE_COLUMN_INFO = load_data("table_columns_info.json")
+
+@app.post("/api/v1/rerank")
+async def rerank(request: Request) -> JSONResponse:
+    try:
+        payload = await request.json()
+        question = payload.get("question", "")
+        n, costs, results = 1, [], []
+        for i in range(n):
+            tables = deepcopy(TABLE_COLUMN_INFO)
+
+            start_time = time.perf_counter()
+            item = await process(question, tables, timeout=2.0)
+            results.append(item)
+            costs.append(time.perf_counter() - start_time)
+        logger.info(f"平均耗时：{sum(costs)/len(costs):.2f}s")
+        return JSONResponse(content=results, media_type="application/json")
+    except:
+        return JSONResponse(content={"message": "Internal error"}, media_type="application/json")
+
+async def process(question: str, tables: list[dict], top_k: int = 10, data_type: str = "str", timeout: float = None) -> list[dict]:
+    return workflow.retrieve_column_value_options_name(question, tables, top_k, data_type, timeout)
+
+def main() -> None:
     question = "物联网部的短视频运作哪个是颜若汐负责的？"
     filename = "table_columns_info.json"
 
@@ -153,11 +181,13 @@ if __name__ == "__main__":
     for i in range(11):
         table_column_info = deepcopy(old_table_column_info)
         start_time = time.perf_counter()
-        result = workflow.retrieve_common(question=question, table_column_info=table_column_info, top_k=10)
+        result = workflow.retrieve_column_value_options_name(question=question, tables=table_column_info, top_k=10)
 
         if i != 0:
             costs.append(time.perf_counter() - start_time)
 
-        save_data(f"result-{i}.json", result)
-
     logger.info(f"平均耗时: {sum(costs) / len(costs):.2f}s")
+
+if __name__ == "__main__":
+    # main()
+    uvicorn.run(app, host="0.0.0.0", port=8000)

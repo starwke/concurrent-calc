@@ -171,7 +171,7 @@ def retrieve_column_value_options_name(
             # 使用ThreadPoolExecutor来实现超时控制
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 # 提交任务
-                future = executor.submit(_retrieve, question, tables, top_k, data_type)
+                future = executor.submit(retrieve_common, question, tables, top_k)
 
                 try:
                     # 等待结果，如果超时会抛出TimeoutError
